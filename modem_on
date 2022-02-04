@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo on > /var/run/modem
+echo "In less than a minute you'll have Internet connection."
+echo "Take a look on /var/log/modem.log for changes."

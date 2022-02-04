@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo off > /var/run/modem
+echo "In less than a minute you'll be disconnected."
+echo "Take a look on /var/log/modem.log for changes."
