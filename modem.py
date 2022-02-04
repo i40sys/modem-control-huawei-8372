@@ -17,6 +17,7 @@ DESIRED_DEFAULT = "on"
 PING_IP = "8.8.8.8"
 MODEM_FILE = "/var/run/modem"
 MODEM_IP = "192.168.8.1"
+# change for your credentials:
 MODEM_USER = "admin"
 MODEM_PASSWORD = "DQBETBG90JR"
 
