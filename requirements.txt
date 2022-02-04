@@ -15,6 +15,7 @@ configobj==5.0.6
 constantly==15.1.0
 cryptography==2.1.4
 cycler==0.10.0
+daiquiri==3.0.1
 distro-info===0.18ubuntu0.18.04.1
 docker==2.5.1
 docker-pycreds==0.2.1
@@ -63,6 +64,7 @@ python-apt==1.6.5+ubuntu0.7
 python-dateutil==2.6.1
 python-debian==0.1.32
 python-gammu==2.11
+python-json-logger==2.0.2
 pytz==2018.3
 pyxdg==0.25
 PyYAML==3.12

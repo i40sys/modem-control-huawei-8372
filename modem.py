@@ -5,8 +5,11 @@ from ping3 import ping
 import copy
 import json
 from time import sleep
+
 import logging
 import os
+import sys
+import daiquiri
 
 import huaweisms.api.user
 import huaweisms.api.wlan
@@ -17,17 +20,18 @@ DESIRED_DEFAULT = "on"
 PING_IP = "8.8.8.8"
 MODEM_FILE = "/var/run/modem"
 MODEM_IP = "192.168.8.1"
+LOG_FILE = "/var/log/modem.log"
 # change for your credentials:
 MODEM_USER = "admin"
 MODEM_PASSWORD = "DQBETBG90JR"
 
-logger = logging.getLogger('modem')
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+daiquiri.setup(
+    level=logging.DEBUG, 
+    outputs=(
+      daiquiri.output.Stream(sys.stdout),
+      daiquiri.output.RotatingFile(LOG_FILE, max_size_bytes=100000000),
+    ))
+logger = daiquiri.getLogger(__name__)
 
 def run_bg(cmd):
     logger.debug(' > run bg process:' + cmd)
@@ -44,13 +48,13 @@ def run_bg(cmd):
     return cp
 
 def is_online():
-    logger.debug('pinging google DNS')
+    logger.debug(f'pinging IP: {PING_IP}')
     try:
         out = ping( PING_IP, timeout=10)
     except OSError:
         out = False
     if out:
-        logger.info('Internet, status: ONFLINE')
+        logger.info('Internet, status: ONLINE')
     else:
         logger.info('Internet, status: OFFLINE')
     return out
