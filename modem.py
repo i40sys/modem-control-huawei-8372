@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
-import psutil
 from ping3 import ping
 import copy
-import json
-from time import sleep
 
 import logging
 import os
