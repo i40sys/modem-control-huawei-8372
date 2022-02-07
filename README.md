@@ -10,8 +10,8 @@ quick summary of the operations:
 
 # HOW DOES IT WORK
 
-* only last SMS is maintained, the rest of SMS are deleted
 * SMS content is stored in /var/run/modem, content always lowcase
+* after processing SMS they are deleteds
 * there are two scripts on /opt/modem: modem_on/modem_off
 * both of them are linked on /usr/local/bin for making them available on PATH
 * the only thing they do is change the content of /var/run/modem for on/off
