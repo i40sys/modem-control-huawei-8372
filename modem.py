@@ -2,22 +2,26 @@
 import subprocess
 from ping3 import ping
 import copy
+from time import sleep
+import pickle
 
 import logging
 import os
 import sys
 import daiquiri
 
+import huaweisms.api.device
 import huaweisms.api.user
 import huaweisms.api.wlan
 import huaweisms.api.dialup
 import huaweisms.api.sms
 
 DESIRED_DEFAULT = "on"
-PING_IP = "8.8.8.8"
+PING_IP = "8.8.8.8, 8.8.4.4, 1.1.1.1, 1.0.0.1"
 MODEM_FILE = "/var/run/modem"
 MODEM_IP = "192.168.8.1"
 LOG_FILE = "/var/log/modem.log"
+FN_CTX = 'ctx.pickle'
 # change for your credentials:
 MODEM_USER = "admin"
 MODEM_PASSWORD = "DQBETBG90JR"
@@ -45,16 +49,24 @@ def run_bg(cmd):
     return cp
 
 def is_online():
-    logger.debug(f'pinging IP: {PING_IP}')
-    try:
-        out = ping( PING_IP, timeout=10)
-    except OSError:
-        out = False
-    if out:
+    ips = [ip.strip() for ip in PING_IP.split(',')]
+    for ip in ips:
+      logger.debug(f'Pinging IP: {ip}')
+      try:
+        out = ping(ip, timeout = 10)
         logger.info('Internet, status: ONLINE')
-    else:
-        logger.info('Internet, status: OFFLINE')
-    return out
+        return True
+      except OSError:
+        pass
+
+    logger.info('Internet, status: OFFLINE')
+    return False
+
+def reboot(ctx):
+  boot = huaweisms.api.device.reboot(ctx)
+  logger.debug(boot)
+
+  return boot['response'] == 'OK'
 
 def is_connected(ctx):
   dialup = huaweisms.api.dialup.get_mobile_status(ctx)
@@ -100,6 +112,10 @@ def _get_n_clean_sms(ctx):
     logger.error(f'Cannot get SMS. Error: {all_sms}')
     sys.exit(-1)
   
+  if not ('Message' in all_sms['response']['Messages']):
+    logger.info('SMS Inbox empty')
+    return get_desired_state()
+
   for sms in all_sms['response']['Messages']['Message']:
     current['index'] = sms['Index']
     current['ts'] = sms['Date']
@@ -114,7 +130,8 @@ def _get_n_clean_sms(ctx):
     else:
       last = copy.deepcopy(current)
 
-  logger.info(f"SMS, keeping: {last['ts']} - phone: {last['phone']} - content: {last['content']}")
+  logger.info(f"SMS, removing latest message: {last['ts']} - phone: {last['phone']} - content: {last['content']}")
+  huaweisms.api.sms.delete_sms(ctx, last['index'])
     
   return last['content']
 
@@ -137,25 +154,54 @@ def get_desired_state():
         out = open(MODEM_FILE,'r').read()
     except FileNotFoundError:
         out = DESIRED_DEFAULT
-    return out.lower()
+    return out.lower().strip()
+
+def save_ctx(ctx):
+  fd = open(FN_CTX, 'wb')
+  pickle.dump(ctx, fd, protocol=pickle.HIGHEST_PROTOCOL)
+
+  return True
+
+
+def load_ctx():
+  try:
+    fd = open(FN_CTX,'rb')
+  except FileNotFoundError:
+    return
+  try:
+    ctx = pickle.load(fd)
+    fd.close()
+  except:
+    return
+
+  return ctx
 
 if __name__ == "__main__":
-    # crontab calls periodically this business logic
-    ctx = huaweisms.api.user.quick_login(MODEM_USER, MODEM_PASSWORD)
+  # crontab calls periodically this business logic
+  ctx = huaweisms.api.user.quick_login(MODEM_USER, MODEM_PASSWORD)
 
-    get_last_sms(ctx)
-    if get_desired_state() == "on":
-        logger.info('Desired Internet connection: ONLINE')
-        if not is_connected(ctx):
-            dialup_connect(ctx)
-        else:
-            if not is_online():
-                logger.warn("Everything ready, but Internet offline. Try resetting the modem with script: reset.sh")
-                #run_bg("reset.sh")
+  get_last_sms(ctx)
+  if get_desired_state() == "on":
+    logger.info('Desired Internet connection: ONLINE')
+    if not is_connected(ctx):
+      dialup_connect(ctx)
+      logger.info('Connecting... (waiting for 10s)')
+      sleep(10)
     else:
-        logger.debug('Desired Internet connection: OFFLINE')
-        if is_connected(ctx):
-            dialup_disconnect(ctx)
+      if not is_online():
+        logger.warn("Everything ready, but Internet offline. Try resetting the modem with script: reset.sh")
+        #run_bg("reset.sh")
+        reboot(ctx)
+        logger.info('Rebooting... (waiting for 30s)')
+        sleep(30)
+  else:
+    logger.debug('Desired Internet connection: OFFLINE')
+    if is_connected(ctx):
+      dialup_disconnect(ctx)
+      logger.info('Disconnecting... (waiting for 10s)')
+      sleep(10)
 
-    logger.debug('sleeping')
+  logger.debug('logout')
+  huaweisms.api.user.logout(ctx)
+  
 
