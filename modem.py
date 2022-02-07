@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-import subprocess
 from ping3 import ping
 import copy
 from time import sleep
-import pickle
 
-import logging
 import os
 import sys
+import logging
 import daiquiri
 
 import huaweisms.api.device
@@ -16,37 +14,23 @@ import huaweisms.api.wlan
 import huaweisms.api.dialup
 import huaweisms.api.sms
 
+DEBUG_LEVEL = logging.DEBUG
 DESIRED_DEFAULT = "on"
 PING_IP = "8.8.8.8, 8.8.4.4, 1.1.1.1, 1.0.0.1"
 MODEM_FILE = "/var/run/modem"
 MODEM_IP = "192.168.8.1"
 LOG_FILE = "/var/log/modem.log"
-FN_CTX = 'ctx.pickle'
 # change for your credentials:
 MODEM_USER = "admin"
 MODEM_PASSWORD = "DQBETBG90JR"
 
 daiquiri.setup(
-    level=logging.DEBUG, 
+    level=DEBUG_LEVEL, 
     outputs=(
       daiquiri.output.Stream(sys.stdout),
       daiquiri.output.RotatingFile(LOG_FILE, max_size_bytes=100000000),
     ))
 logger = daiquiri.getLogger(__name__)
-
-def run_bg(cmd):
-    logger.debug(' > run bg process:' + cmd)
-    cp = subprocess.Popen( cmd, 
-        shell = True,
-        stdout=subprocess.PIPE, 
-        stderr=subprocess.PIPE)
-    #    universal_newlines=True, 
-
-    #    close_fds=True) 
-    #stdout, stderr = cp.communicate()
-    #logger.debug(stdout)
-    #logger.error(stderr)
-    return cp
 
 def is_online():
     ips = [ip.strip() for ip in PING_IP.split(',')]
@@ -89,17 +73,7 @@ def dialup_connect(ctx):
 def _get_n_clean_sms(ctx):
   last = {}
   current = {}
-  """
-  def get_sms(ctx, box_type=1, page=1, qty=1, unread_preferred=True):
-      Gets available SMS from the router.
-      :param ctx: ApiCtx object.
-      :param box_type: 1 == inbox, 2 == outbox. integer.
-      :param page: page number during pagination (used with qty). integer.
-      :param qty: maximum number of items per page. integer.
-      :param unread_preferred: if True, unread SMS'es are listed first, otherwise
-          they are listed by date in descending order. boolean.
-      :return: a collection of sms records.
-  """
+
   all_sms = huaweisms.api.sms.get_sms(
     ctx,
     box_type = 1,
@@ -156,26 +130,6 @@ def get_desired_state():
         out = DESIRED_DEFAULT
     return out.lower().strip()
 
-def save_ctx(ctx):
-  fd = open(FN_CTX, 'wb')
-  pickle.dump(ctx, fd, protocol=pickle.HIGHEST_PROTOCOL)
-
-  return True
-
-
-def load_ctx():
-  try:
-    fd = open(FN_CTX,'rb')
-  except FileNotFoundError:
-    return
-  try:
-    ctx = pickle.load(fd)
-    fd.close()
-  except:
-    return
-
-  return ctx
-
 if __name__ == "__main__":
   # crontab calls periodically this business logic
   ctx = huaweisms.api.user.quick_login(MODEM_USER, MODEM_PASSWORD)
@@ -190,7 +144,6 @@ if __name__ == "__main__":
     else:
       if not is_online():
         logger.warn("Everything ready, but Internet offline. Try resetting the modem with script: reset.sh")
-        #run_bg("reset.sh")
         reboot(ctx)
         logger.info('Rebooting... (waiting for 30s)')
         sleep(30)
